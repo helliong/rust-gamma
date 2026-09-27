@@ -6,6 +6,9 @@
 ![Видеокарта](assets/badges/gpu_ru.svg)
 ![Easy Anti-Cheat](assets/badges/anticheat_ru.svg)
 ![Лицензия](assets/badges/license_ru.svg)
+[![Rust Gamma downloads per week](assets/badges/sourceforge_downloads.svg)](https://sourceforge.net/projects/rust-gamma/files/latest/download)
+
+[![Download Rust Gamma](assets/badges/sourceforge_download.svg)](https://sourceforge.net/projects/rust-gamma/files/latest/download)
 
 ---
 
@@ -86,4 +89,5 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /win32ico
 
 - Сайт разработчика: [helliong.space](https://helliong.space)
 - Репозиторий GitHub: [github.com/helliong/rust-gamma](https://github.com/helliong/rust-gamma)
+- Страница SourceForge: [sourceforge.net/projects/rust-gamma](https://sourceforge.net/projects/rust-gamma/)
 - Сообщить о баге: [github.com/helliong/rust-gamma/issues](https://github.com/helliong/rust-gamma/issues)

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="276" height="48" viewBox="0 0 276 48" role="img" aria-label="Download Rust Gamma from SourceForge">
+  <title>Download Rust Gamma from SourceForge</title>
+  <rect width="276" height="48" rx="4" fill="#f4511e"/>
+  <path d="M25 11v16.2l-5.2-5.1-3.2 3.2L27.3 36l10.7-10.7-3.2-3.2-5.2 5.1V11z" fill="#fff"/>
+  <path d="M16 36h22v4H16z" fill="#fff"/>
+  <g fill="#fff" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
+    <text x="50" y="21" font-size="11">DOWNLOAD</text>
+    <text x="50" y="37" font-size="18" font-weight="bold">Rust Gamma</text>
+  </g>
+</svg>
