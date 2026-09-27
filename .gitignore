@@ -1,0 +1,14 @@
+# User configurations
+config.ini
+
+# Temporary files
+*.tmp
+*.log
+*.pdb
+
+# Build & IDE files
+.vs/
+.vscode/
+.idea/
+bin/
+obj/

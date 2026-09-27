@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="22" viewBox="0 0 120 22">
+  <rect width="75" height="22" fill="#2d333b"/>
+  <rect x="75" width="45" height="22" fill="#d29922"/>
+  <g fill="#ffffff" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11">
+    <text x="37" y="15" fill="#adbac7">Лицензия</text>
+    <text x="97" y="15" font-weight="bold">MIT</text>
+  </g>
+</svg>

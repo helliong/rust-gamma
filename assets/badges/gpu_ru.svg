@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="22" viewBox="0 0 220 22">
+  <rect width="80" height="22" fill="#2d333b"/>
+  <rect x="80" width="140" height="22" fill="#238636"/>
+  <g fill="#ffffff" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11">
+    <text x="40" y="15" fill="#adbac7">Видеокарта</text>
+    <text x="150" y="15" font-weight="bold">NVIDIA / AMD / Intel</text>
+  </g>
+</svg>

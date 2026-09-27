@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
@@ -141,7 +142,9 @@ namespace RustGammaPro
 
     public class MainForm : Form
     {
-        // Win32 API (Works identically on NVIDIA, AMD Radeon and Intel)
+        public const string APP_VERSION = "1.0.0";
+
+        // Win32 API
         [DllImport("user32.dll")]
         static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
         [DllImport("user32.dll")]
@@ -237,6 +240,12 @@ namespace RustGammaPro
         private Label lblGameStatus;
         private Label lblVersion;
         private LinkLabel linkWebsite;
+        private Label lblGitHub;
+        private LinkLabel linkGitHubRepo;
+        private Label lblDot;
+        private LinkLabel linkGitHubIssues;
+        private LinkLabel linkCheckUpdate;
+        private Label lblUpdateStatus;
         private Button btnSaveMinimize;
 
         private bool isNight = false;
@@ -247,6 +256,9 @@ namespace RustGammaPro
         private RAMP originalRamp;
         private bool hasOriginalRamp = false;
         private bool allowActualClose = false;
+
+        private string latestFoundVersion = "";
+        private string latestFoundUrl = "https://github.com/helliong/rust-gamma/releases/latest";
 
         private struct HotkeyOption
         {
@@ -292,6 +304,13 @@ namespace RustGammaPro
 
             CheckRustProcess();
 
+            // Фоновая проверка обновлений при старте (через 1.5 секунды)
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                Thread.Sleep(1500);
+                PerformUpdateCheck(true);
+            });
+
             if (startMinimized)
             {
                 this.WindowState = FormWindowState.Minimized;
@@ -306,7 +325,7 @@ namespace RustGammaPro
 
         private void BuildUI()
         {
-            this.Size = new Size(520, 650);
+            this.Size = new Size(520, 700);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -328,7 +347,7 @@ namespace RustGammaPro
             Label lblTitle = new Label() { Text = "RUST GAMMA PRO", Location = new Point(78, 14), AutoSize = true, Font = new Font("Segoe UI", 13.5f, FontStyle.Bold), ForeColor = Color.FromArgb(255, 140, 40) };
             lblSub = new Label() { Text = "Аппаратное ночное зрение для Rust (NVIDIA & AMD)", Location = new Point(80, 42), AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(160, 165, 175) };
 
-            // Кнопка переключения языка в шапке справа
+            // Кнопка переключения языка
             btnLang = new Button()
             {
                 Location = new Point(418, 20),
@@ -353,7 +372,7 @@ namespace RustGammaPro
             this.Controls.Add(headerPanel);
 
             // Основной контейнер
-            Panel content = new Panel() { Location = new Point(16, 85), Size = new Size(472, 470) };
+            Panel content = new Panel() { Location = new Point(16, 85), Size = new Size(472, 505) };
 
             // 1. Блок Гаммы
             grpGamma = CreateGroupBox("1. Яркость ночью (Гамма)", 0, 112);
@@ -442,7 +461,7 @@ namespace RustGammaPro
             // 4. Статус игры
             lblGameStatus = new Label() { 
                 Text = "Статус: ⚪ Ожидание запуска RustClient.exe...", 
-                Location = new Point(4, 388), 
+                Location = new Point(4, 385), 
                 AutoSize = true, 
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(170, 175, 185) 
@@ -451,8 +470,8 @@ namespace RustGammaPro
 
             // Версия и сайт
             lblVersion = new Label() { 
-                Text = "Версия 1.0  •  Сайт разработчика: ", 
-                Location = new Point(4, 415), 
+                Text = "Версия " + APP_VERSION + "  •  Сайт: ", 
+                Location = new Point(4, 412), 
                 AutoSize = true, 
                 Font = new Font("Segoe UI", 8.5f), 
                 ForeColor = Color.FromArgb(140, 145, 155) 
@@ -461,7 +480,7 @@ namespace RustGammaPro
 
             linkWebsite = new LinkLabel() { 
                 Text = "helliong.space", 
-                Location = new Point(205, 415), 
+                Location = new Point(160, 412), 
                 AutoSize = true, 
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 LinkColor = Color.FromArgb(255, 145, 45), 
@@ -474,6 +493,89 @@ namespace RustGammaPro
                 catch { try { Process.Start("https://helliong.space"); } catch { } }
             };
             content.Controls.Add(linkWebsite);
+
+            // GitHub & Issues
+            lblGitHub = new Label() {
+                Text = "GitHub: ",
+                Location = new Point(4, 434),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = Color.FromArgb(140, 145, 155)
+            };
+            content.Controls.Add(lblGitHub);
+
+            linkGitHubRepo = new LinkLabel() {
+                Text = "Исходный код",
+                Location = new Point(55, 434),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                LinkColor = Color.FromArgb(80, 180, 255),
+                ActiveLinkColor = Color.FromArgb(130, 215, 255),
+                VisitedLinkColor = Color.FromArgb(80, 180, 255),
+                Cursor = Cursors.Hand
+            };
+            linkGitHubRepo.LinkClicked += (s, e) => {
+                try { Process.Start(new ProcessStartInfo("https://github.com/helliong/rust-gamma") { UseShellExecute = true }); }
+                catch { try { Process.Start("https://github.com/helliong/rust-gamma"); } catch { } }
+            };
+            content.Controls.Add(linkGitHubRepo);
+
+            lblDot = new Label() {
+                Text = " • ",
+                Location = new Point(145, 434),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = Color.FromArgb(140, 145, 155)
+            };
+            content.Controls.Add(lblDot);
+
+            linkGitHubIssues = new LinkLabel() {
+                Text = "Сообщить о баге",
+                Location = new Point(160, 434),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                LinkColor = Color.FromArgb(255, 120, 120),
+                ActiveLinkColor = Color.FromArgb(255, 160, 160),
+                VisitedLinkColor = Color.FromArgb(255, 120, 120),
+                Cursor = Cursors.Hand
+            };
+            linkGitHubIssues.LinkClicked += (s, e) => {
+                try { Process.Start(new ProcessStartInfo("https://github.com/helliong/rust-gamma/issues") { UseShellExecute = true }); }
+                catch { try { Process.Start("https://github.com/helliong/rust-gamma/issues"); } catch { } }
+            };
+            content.Controls.Add(linkGitHubIssues);
+
+            // Кнопка проверки обновлений
+            linkCheckUpdate = new LinkLabel() {
+                Text = "Проверить обновления",
+                Location = new Point(4, 456),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Underline),
+                LinkColor = Color.FromArgb(180, 185, 195),
+                ActiveLinkColor = Color.FromArgb(255, 160, 50),
+                VisitedLinkColor = Color.FromArgb(180, 185, 195),
+                Cursor = Cursors.Hand
+            };
+            linkCheckUpdate.LinkClicked += (s, e) => {
+                if (!string.IsNullOrEmpty(latestFoundVersion))
+                {
+                    try { Process.Start(new ProcessStartInfo(latestFoundUrl) { UseShellExecute = true }); } catch { }
+                }
+                else
+                {
+                    PerformUpdateCheck(false);
+                }
+            };
+            content.Controls.Add(linkCheckUpdate);
+
+            lblUpdateStatus = new Label() {
+                Text = "",
+                Location = new Point(160, 456),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(140, 145, 155)
+            };
+            content.Controls.Add(lblUpdateStatus);
 
             this.Controls.Add(content);
 
@@ -495,7 +597,7 @@ namespace RustGammaPro
             btnSaveMinimize.Click += (s, e) => {
                 config.Save();
                 this.Hide();
-                string title = (config.Language == "RU") ? "Rust Gamma Pro" : "Rust Gamma Pro";
+                string title = "Rust Gamma Pro";
                 string msg = (config.Language == "RU")
                     ? "Программа свёрнута в трей и готова к работе.\nНажмите " + config.HotkeyName + " для переключения."
                     : "App minimized to tray and active.\nPress " + config.HotkeyName + " to toggle.";
@@ -514,6 +616,143 @@ namespace RustGammaPro
                     this.Hide();
                 }
             };
+        }
+
+        private void PerformUpdateCheck(bool isStartup)
+        {
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                if (!isStartup)
+                {
+                    this.BeginInvoke(new Action(() => {
+                        lblUpdateStatus.Text = (config.Language == "RU") ? "Проверка..." : "Checking...";
+                        lblUpdateStatus.ForeColor = Color.FromArgb(170, 175, 185);
+                    }));
+                }
+
+                string remoteVer = null;
+                string downloadUrl = "https://github.com/helliong/rust-gamma/releases/latest";
+                bool hasUpdate = CheckForUpdate(APP_VERSION, out remoteVer, out downloadUrl);
+
+                this.BeginInvoke(new Action(() =>
+                {
+                    bool isRU = (config.Language == "RU");
+                    if (hasUpdate)
+                    {
+                        latestFoundVersion = remoteVer;
+                        latestFoundUrl = downloadUrl;
+                        linkCheckUpdate.Text = isRU ? ("Доступно обновление v" + remoteVer + "!") : ("New update v" + remoteVer + " available!");
+                        linkCheckUpdate.LinkColor = Color.FromArgb(255, 140, 40);
+                        
+                        lblUpdateStatus.Text = isRU ? "[ Скачать с GitHub ]" : "[ Download from GitHub ]";
+                        lblUpdateStatus.ForeColor = Color.FromArgb(70, 220, 100);
+                        lblUpdateStatus.Cursor = Cursors.Hand;
+                        lblUpdateStatus.Click += (s, e) => {
+                            try { Process.Start(new ProcessStartInfo(latestFoundUrl) { UseShellExecute = true }); } catch { }
+                        };
+
+                        if (isStartup)
+                        {
+                            string title = isRU ? "Обновление Rust Gamma Pro" : "Rust Gamma Pro Update";
+                            string msg = isRU 
+                                ? string.Format("Вышла новая версия {0} (текущая: {1})!\n\nОткрыть страницу скачивания на GitHub?", remoteVer, APP_VERSION)
+                                : string.Format("A new version {0} is available (current: {1})!\n\nOpen download page on GitHub?", remoteVer, APP_VERSION);
+                            
+                            if (MessageBox.Show(this, msg, title, MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                            {
+                                try { Process.Start(new ProcessStartInfo(latestFoundUrl) { UseShellExecute = true }); } catch { }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (!isStartup)
+                        {
+                            lblUpdateStatus.Text = isRU ? "✓ У вас последняя версия" : "✓ You have the latest version";
+                            lblUpdateStatus.ForeColor = Color.FromArgb(70, 220, 100);
+                        }
+                    }
+                }));
+            });
+        }
+
+        private static bool CheckForUpdate(string currentVersion, out string latestVersion, out string releaseUrl)
+        {
+            latestVersion = null;
+            releaseUrl = "https://github.com/helliong/rust-gamma/releases/latest";
+
+            try
+            {
+                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | SecurityProtocolType.Tls;
+
+                // 1. Проверяем version.txt на raw.githubusercontent.com (быстро и без лимитов)
+                try
+                {
+                    HttpWebRequest req = (HttpWebRequest)WebRequest.Create("https://raw.githubusercontent.com/helliong/rust-gamma/main/version.txt");
+                    req.Timeout = 3000;
+                    req.UserAgent = "RustGammaPro-Updater";
+                    using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                    using (StreamReader sr = new StreamReader(resp.GetResponseStream()))
+                    {
+                        string text = sr.ReadToEnd().Trim();
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            Version vRemote, vCurrent;
+                            if (TryParseVersion(text, out vRemote) && TryParseVersion(currentVersion, out vCurrent))
+                            {
+                                if (vRemote > vCurrent)
+                                {
+                                    latestVersion = text;
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { }
+
+                // 2. Проверяем редирект GitHub Releases
+                try
+                {
+                    HttpWebRequest req = (HttpWebRequest)WebRequest.Create("https://github.com/helliong/rust-gamma/releases/latest");
+                    req.AllowAutoRedirect = false;
+                    req.Timeout = 3000;
+                    req.UserAgent = "Mozilla/5.0";
+                    using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                    {
+                        string loc = resp.Headers["Location"];
+                        if (!string.IsNullOrEmpty(loc) && loc.Contains("/tag/"))
+                        {
+                            releaseUrl = loc;
+                            string tag = loc.Substring(loc.LastIndexOf("/tag/") + 5).Trim();
+                            Version vRemote, vCurrent;
+                            if (TryParseVersion(tag, out vRemote) && TryParseVersion(currentVersion, out vCurrent))
+                            {
+                                if (vRemote > vCurrent)
+                                {
+                                    latestVersion = tag;
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+            catch { }
+
+            return false;
+        }
+
+        private static bool TryParseVersion(string input, out Version ver)
+        {
+            ver = null;
+            if (string.IsNullOrEmpty(input)) return false;
+            input = input.Trim().TrimStart('v', 'V');
+            string[] parts = input.Split('.');
+            if (parts.Length == 1) input += ".0.0";
+            else if (parts.Length == 2) input += ".0";
+            return Version.TryParse(input, out ver);
         }
 
         private void UpdateLocalization()
@@ -567,8 +806,29 @@ namespace RustGammaPro
 
             UpdateGameStatusLabel();
 
-            lblVersion.Text = isRU ? "Версия 1.0  •  Сайт разработчика: " : "Version 1.0  •  Developer website: ";
-            linkWebsite.Location = new Point(isRU ? 205 : 195, 415);
+            lblVersion.Text = (isRU ? "Версия " : "Version ") + APP_VERSION + "  •  " + (isRU ? "Сайт: " : "Website: ");
+            linkWebsite.Left = lblVersion.Right;
+
+            lblGitHub.Text = "GitHub: ";
+            linkGitHubRepo.Text = isRU ? "Исходный код" : "Source Code";
+            linkGitHubRepo.Left = lblGitHub.Right;
+
+            lblDot.Text = " • ";
+            lblDot.Left = linkGitHubRepo.Right;
+
+            linkGitHubIssues.Text = isRU ? "Сообщить о баге" : "Report an Issue";
+            linkGitHubIssues.Left = lblDot.Right;
+
+            if (string.IsNullOrEmpty(latestFoundVersion))
+            {
+                linkCheckUpdate.Text = isRU ? "Проверить обновления" : "Check for updates";
+            }
+            else
+            {
+                linkCheckUpdate.Text = isRU ? ("Доступно обновление v" + latestFoundVersion + "!") : ("New update v" + latestFoundVersion + " available!");
+                lblUpdateStatus.Text = isRU ? "[ Скачать с GitHub ]" : "[ Download from GitHub ]";
+            }
+            lblUpdateStatus.Left = linkCheckUpdate.Right + 8;
 
             btnSaveMinimize.Text = isRU ? "✔ Сохранить и свернуть в трей" : "✔ Save & Minimize to Tray";
 
@@ -653,7 +913,7 @@ namespace RustGammaPro
         private void InitializeTray()
         {
             trayMenu = new ContextMenuStrip();
-            var title = new ToolStripMenuItem("Rust Gamma Pro v1.0") { Enabled = false, Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold) };
+            var title = new ToolStripMenuItem("Rust Gamma Pro v" + APP_VERSION) { Enabled = false, Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold) };
             trayStatusItem = new ToolStripMenuItem("...") { Enabled = false };
             
             traySettingsItem = new ToolStripMenuItem("⚙ Настройки...", null, (s, e) => ShowSettingsWindow());
@@ -918,8 +1178,8 @@ namespace RustGammaPro
                 ? (isRU ? "Rust: В игре" : "Rust: In-game")
                 : (isRU ? "Rust: Ожидание" : "Rust: Waiting");
 
-            trayIcon.Text = string.Format("Rust Gamma Pro\n{0} | {1}\n{2}: {3}", 
-                rustState, state, isRU ? "Хоткей" : "Hotkey", config.HotkeyName);
+            trayIcon.Text = string.Format("Rust Gamma Pro v{0}\n{1} | {2}\n{3}: {4}", 
+                APP_VERSION, rustState, state, isRU ? "Хоткей" : "Hotkey", config.HotkeyName);
             trayToggleItem.Text = isNight 
                 ? (isRU ? "Выключить ночь (вернуть 1.0)" : "Turn Night OFF (restore 1.0)")
                 : (isRU ? string.Format("Включить ночь ({0})", config.HotkeyName) : string.Format("Turn Night ON ({0})", config.HotkeyName));
