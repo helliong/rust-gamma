@@ -8,6 +8,16 @@ First public release of Rust Gamma Pro — a lightweight hardware monitor gamma 
 | :--- | :---: | :--- |
 | **`RustGammaPro_Setup_v1.0.0.exe`** | **Setup (Installer)** | Recommended for most users. Installs to system, creates Desktop/Start menu shortcuts and uninstaller. |
 | **`RustGammaPro_v1.0.0_Portable.zip`** | **Portable (ZIP)** | No installation needed. Extract anywhere and launch immediately. |
+| **`SHA256SUMS.txt`** | **Checksums** | SHA256 checksums for verifying download integrity. |
+
+---
+
+## SHA256 Checksums / Контрольные суммы
+
+```text
+311e362878cfb1d8e57544275b09b4a62d46d7fa1528612dca22006581db33b4 *RustGammaPro_Setup_v1.0.0.exe
+ff1df14f9eac4d8ced17198d1a6cf1a93254c36276154d788150ff5d9ef30394 *RustGammaPro_v1.0.0_Portable.zip
+```
 
 ---
 
