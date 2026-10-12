@@ -37,8 +37,9 @@ Rust Gamma Pro automates this process directly through the Windows Hardware Disp
 - **Target display selection:** Changes gamma specifically on the monitor running Rust, leaving secondary monitors (Discord, browser) untouched.
 - **Fail-safe restoration:** Automatically resets monitor gamma to 1.00 when the game exits, crashes, or when Windows shuts down.
 - **Hardware compatibility:** Works natively on NVIDIA GeForce, AMD Radeon, and Intel graphics cards.
-- **Audio feedback:** High-pitch beep for Night mode (1.5) and low-pitch beep for Day mode (1.0).
-- **Settings window:** Interactive gamma slider (1.10 - 2.20), 2-second preview button, configurable hotkeys, and Windows autostart option.
+- **Audio feedback:** High-pitch beep for Night mode and low-pitch beep for Day mode.
+- **Full RivaTuner-style color control:** Independent sliders for Brightness (-100 to +100), Contrast (-100 to +100), and Gamma (0.50x to 3.00x) with live LUT curve graph preview.
+- **Settings window:** Interactive color controls, live curve preview, 2-second test button, one-click profile reset, configurable hotkeys, and Windows autostart option.
 - **Bilingual interface:** Instant toggle between English and Russian (EN / RU).
 - **Zero overhead:** Standalone ~180 KB executable, 0.0% CPU usage, and <10 MB RAM consumption.
 

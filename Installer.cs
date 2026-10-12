@@ -132,7 +132,7 @@ namespace RustGammaSetup
 
         private void BuildUI()
         {
-            this.Text = "Установка Rust Gamma Pro v1.0.0";
+            this.Text = "Установка Rust Gamma Pro v1.1.0";
             this.Size = new Size(500, 480);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -328,7 +328,7 @@ namespace RustGammaSetup
                     if (uninstKey != null)
                     {
                         uninstKey.SetValue("DisplayName", "Rust Gamma Pro");
-                        uninstKey.SetValue("DisplayVersion", "1.0.0");
+                        uninstKey.SetValue("DisplayVersion", "1.1.0");
                         uninstKey.SetValue("DisplayIcon", "\"" + exePath + "\",0");
                         uninstKey.SetValue("Publisher", "helliong");
                         uninstKey.SetValue("URLInfoAbout", "https://helliong.space");

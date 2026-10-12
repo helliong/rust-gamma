@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -48,6 +49,8 @@ namespace RustGammaPro
     public class AppConfig
     {
         public double NightGamma = 1.5;
+        public int NightBrightness = 0; // -100 .. +100
+        public int NightContrast = 0;   // -100 .. +100
         public uint HotkeyVK = 0x7A; // F11
         public string HotkeyName = "F11";
         public bool PlaySound = true;
@@ -83,6 +86,16 @@ namespace RustGammaPro
                     {
                         double g;
                         if (double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out g)) cfg.NightGamma = g;
+                    }
+                    else if (key.Equals("NightBrightness", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int b;
+                        if (int.TryParse(val, out b)) cfg.NightBrightness = Math.Max(-100, Math.Min(100, b));
+                    }
+                    else if (key.Equals("NightContrast", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int c;
+                        if (int.TryParse(val, out c)) cfg.NightContrast = Math.Max(-100, Math.Min(100, c));
                     }
                     else if (key.Equals("HotkeyVK", StringComparison.OrdinalIgnoreCase))
                     {
@@ -127,6 +140,8 @@ namespace RustGammaPro
                 {
                     sw.WriteLine("# Rust Gamma Pro Configuration");
                     sw.WriteLine("NightGamma=" + NightGamma.ToString("0.00", CultureInfo.InvariantCulture));
+                    sw.WriteLine("NightBrightness=" + NightBrightness);
+                    sw.WriteLine("NightContrast=" + NightContrast);
                     sw.WriteLine("HotkeyVK=" + HotkeyVK);
                     sw.WriteLine("HotkeyName=" + HotkeyName);
                     sw.WriteLine("PlaySound=" + (PlaySound ? "1" : "0"));
@@ -142,7 +157,7 @@ namespace RustGammaPro
 
     public class MainForm : Form
     {
-        public const string APP_VERSION = "1.0.0";
+        public const string APP_VERSION = "1.1.0";
 
         // Win32 API
         [DllImport("user32.dll")]
@@ -220,10 +235,22 @@ namespace RustGammaPro
         private Label lblSub;
         private Button btnLang;
         private GroupBox grpGamma;
-        private Label lblGDesc;
-        private Label lblGammaValue;
+        private Label lblBrightTitle;
+        private Label lblBrightVal;
+        private TrackBar trackBright;
+
+        private Label lblContrastTitle;
+        private Label lblContrastVal;
+        private TrackBar trackContrast;
+
+        private Label lblGammaTitle;
+        private Label lblGammaVal;
         private TrackBar trackGamma;
+
+        private Label lblProfileHint;
+        private PictureBox picCurve;
         private Button btnTestGamma;
+        private Button btnResetProfile;
 
         private GroupBox grpControls;
         private Label lblKey;
@@ -325,7 +352,7 @@ namespace RustGammaPro
 
         private void BuildUI()
         {
-            this.Size = new Size(520, 700);
+            this.Size = new Size(520, 845);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -372,27 +399,66 @@ namespace RustGammaPro
             this.Controls.Add(headerPanel);
 
             // Основной контейнер
-            Panel content = new Panel() { Location = new Point(16, 85), Size = new Size(472, 505) };
+            Panel content = new Panel() { Location = new Point(16, 85), Size = new Size(472, 650) };
 
-            // 1. Блок Гаммы
-            grpGamma = CreateGroupBox("1. Яркость ночью (Гамма)", 0, 112);
-            lblGDesc = new Label() { Text = "Рекомендуется 1.40 – 1.60. Стандартная дневная гамма: 1.00", Location = new Point(14, 22), AutoSize = true, ForeColor = Color.FromArgb(170, 175, 185) };
-            
-            trackGamma = new TrackBar() { Location = new Point(12, 48), Size = new Size(210, 45), Minimum = 110, Maximum = 220, TickFrequency = 10, SmallChange = 5, LargeChange = 10 };
-            trackGamma.Value = Math.Max(110, Math.Min(220, (int)Math.Round(config.NightGamma * 100)));
-            trackGamma.ValueChanged += (s, e) => {
-                double val = trackGamma.Value / 100.0;
-                lblGammaValue.Text = val.ToString("0.00") + "x";
-                config.NightGamma = val;
-                if (isNight) ApplyGamma(config.NightGamma);
+            // 1. Блок Настроек Цвета (Яркость, Контраст, Гамма — в стиле RivaTuner)
+            grpGamma = CreateGroupBox("1. Профиль цвета (Яркость, Контраст, Гамма)", 0, 275);
+
+            // --- Яркость ---
+            lblBrightTitle = new Label() { Text = "Яркость (-100 … +100):", Location = new Point(14, 22), AutoSize = true, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Color.FromArgb(220, 225, 235) };
+            lblBrightVal = new Label() { Text = (config.NightBrightness > 0 ? "+" : "") + config.NightBrightness.ToString(), Location = new Point(216, 19), Size = new Size(84, 20), TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = Color.FromArgb(255, 150, 40) };
+            trackBright = new TrackBar() { Location = new Point(14, 44), Size = new Size(286, 30), Minimum = -100, Maximum = 100, TickStyle = TickStyle.None, SmallChange = 1, LargeChange = 5 };
+            trackBright.Value = Math.Max(-100, Math.Min(100, config.NightBrightness));
+            trackBright.ValueChanged += (s, e) => {
+                config.NightBrightness = trackBright.Value;
+                lblBrightVal.Text = (config.NightBrightness > 0 ? "+" : "") + config.NightBrightness.ToString();
+                if (picCurve != null) picCurve.Invalidate();
+                if (isNight) ApplyNightRamp();
             };
 
-            lblGammaValue = new Label() { Text = config.NightGamma.ToString("0.00") + "x", Location = new Point(226, 52), AutoSize = true, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = Color.FromArgb(255, 150, 40) };
-            
+            // --- Контраст ---
+            lblContrastTitle = new Label() { Text = "Контраст (-100 … +100):", Location = new Point(14, 94), AutoSize = true, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Color.FromArgb(220, 225, 235) };
+            lblContrastVal = new Label() { Text = (config.NightContrast > 0 ? "+" : "") + config.NightContrast.ToString(), Location = new Point(216, 91), Size = new Size(84, 20), TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = Color.FromArgb(255, 150, 40) };
+            trackContrast = new TrackBar() { Location = new Point(14, 116), Size = new Size(286, 30), Minimum = -100, Maximum = 100, TickStyle = TickStyle.None, SmallChange = 1, LargeChange = 5 };
+            trackContrast.Value = Math.Max(-100, Math.Min(100, config.NightContrast));
+            trackContrast.ValueChanged += (s, e) => {
+                config.NightContrast = trackContrast.Value;
+                lblContrastVal.Text = (config.NightContrast > 0 ? "+" : "") + config.NightContrast.ToString();
+                if (picCurve != null) picCurve.Invalidate();
+                if (isNight) ApplyNightRamp();
+            };
+
+            // --- Гамма ---
+            lblGammaTitle = new Label() { Text = "Гамма (0.50 … 3.00):", Location = new Point(14, 166), AutoSize = true, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Color.FromArgb(220, 225, 235) };
+            lblGammaVal = new Label() { Text = config.NightGamma.ToString("0.00") + "x", Location = new Point(216, 163), Size = new Size(84, 20), TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = Color.FromArgb(255, 150, 40) };
+            trackGamma = new TrackBar() { Location = new Point(14, 188), Size = new Size(286, 30), Minimum = 50, Maximum = 300, TickStyle = TickStyle.None, SmallChange = 2, LargeChange = 10 };
+            trackGamma.Value = Math.Max(50, Math.Min(300, (int)Math.Round(config.NightGamma * 100)));
+            trackGamma.ValueChanged += (s, e) => {
+                double val = trackGamma.Value / 100.0;
+                lblGammaVal.Text = val.ToString("0.00") + "x";
+                config.NightGamma = val;
+                if (picCurve != null) picCurve.Invalidate();
+                if (isNight) ApplyNightRamp();
+            };
+
+            // Подсказка / Рекомендация
+            lblProfileHint = new Label() { 
+                Text = "Рекомендация: Гамма 1.40–1.60, Яркость 0, Контраст 0", 
+                Location = new Point(14, 244), 
+                AutoSize = true, 
+                Font = new Font("Segoe UI", 8f), 
+                ForeColor = Color.FromArgb(150, 155, 165) 
+            };
+
+            // График кривой (LUT preview как в RivaTuner)
+            picCurve = new PictureBox() { Location = new Point(316, 22), Size = new Size(144, 126), Cursor = Cursors.Default };
+            picCurve.Paint += PicCurve_Paint;
+
+            // Кнопка Тест (2 сек)
             btnTestGamma = new Button() { 
                 Text = "Проверить (2 сек)", 
-                Location = new Point(302, 46), 
-                Size = new Size(155, 34), 
+                Location = new Point(316, 158), 
+                Size = new Size(144, 34), 
                 FlatStyle = FlatStyle.Flat, 
                 BackColor = Color.FromArgb(45, 47, 55), 
                 ForeColor = Color.White,
@@ -401,14 +467,45 @@ namespace RustGammaPro
             };
             btnTestGamma.Click += (s, e) => TestGamma2Sec();
 
-            grpGamma.Controls.Add(lblGDesc);
+            // Кнопка Сброс (Reset defaults)
+            btnResetProfile = new Button() { 
+                Text = "↺ Сброс профиля", 
+                Location = new Point(316, 202), 
+                Size = new Size(144, 32), 
+                FlatStyle = FlatStyle.Flat, 
+                BackColor = Color.FromArgb(34, 36, 42), 
+                ForeColor = Color.FromArgb(200, 205, 215),
+                Font = new Font("Segoe UI", 8f),
+                Cursor = Cursors.Hand
+            };
+            btnResetProfile.FlatAppearance.BorderColor = Color.FromArgb(60, 65, 75);
+            btnResetProfile.Click += (s, e) => {
+                trackBright.Value = 0;
+                trackContrast.Value = 0;
+                trackGamma.Value = 150;
+                RestoreGamma();
+            };
+
+            grpGamma.Controls.Add(lblBrightTitle);
+            grpGamma.Controls.Add(lblBrightVal);
+            grpGamma.Controls.Add(trackBright);
+
+            grpGamma.Controls.Add(lblContrastTitle);
+            grpGamma.Controls.Add(lblContrastVal);
+            grpGamma.Controls.Add(trackContrast);
+
+            grpGamma.Controls.Add(lblGammaTitle);
+            grpGamma.Controls.Add(lblGammaVal);
             grpGamma.Controls.Add(trackGamma);
-            grpGamma.Controls.Add(lblGammaValue);
+
+            grpGamma.Controls.Add(lblProfileHint);
+            grpGamma.Controls.Add(picCurve);
             grpGamma.Controls.Add(btnTestGamma);
+            grpGamma.Controls.Add(btnResetProfile);
             content.Controls.Add(grpGamma);
 
             // 2. Блок Клавиши и Монитора
-            grpControls = CreateGroupBox("2. Горячая клавиша и монитор", 122, 105);
+            grpControls = CreateGroupBox("2. Горячая клавиша и монитор", 287, 105);
             
             lblKey = new Label() { Text = "Клавиша переключения:", Location = new Point(14, 26), AutoSize = true };
             cbHotkey = new ComboBox() { Location = new Point(185, 23), Size = new Size(270, 26), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(36, 38, 44), ForeColor = Color.White };
@@ -439,7 +536,7 @@ namespace RustGammaPro
             content.Controls.Add(grpControls);
 
             // 3. Блок Автоматизации
-            grpAuto = CreateGroupBox("3. Автоматизация и звук", 237, 138);
+            grpAuto = CreateGroupBox("3. Автоматизация и звук", 402, 138);
             chkAutoDetect = new CheckBox() { Text = "Следить за запуском Rust (активировать хоткей только в игре)", Location = new Point(16, 24), AutoSize = true, Checked = config.AutoDetectRust };
             chkAutoDetect.CheckedChanged += (s, e) => { config.AutoDetectRust = chkAutoDetect.Checked; };
 
@@ -460,8 +557,8 @@ namespace RustGammaPro
 
             // 4. Статус игры
             lblGameStatus = new Label() { 
-                Text = "Статус: ⚪ Ожидание запуска RustClient.exe...", 
-                Location = new Point(4, 385), 
+                Text = "Статус: ○ Ожидание запуска RustClient.exe...", 
+                Location = new Point(4, 550), 
                 AutoSize = true, 
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(170, 175, 185) 
@@ -471,7 +568,7 @@ namespace RustGammaPro
             // Версия и сайт
             lblVersion = new Label() { 
                 Text = "Версия " + APP_VERSION + "  •  Сайт: ", 
-                Location = new Point(4, 412), 
+                Location = new Point(4, 577), 
                 AutoSize = true, 
                 Font = new Font("Segoe UI", 8.5f), 
                 ForeColor = Color.FromArgb(140, 145, 155) 
@@ -480,12 +577,12 @@ namespace RustGammaPro
 
             linkWebsite = new LinkLabel() { 
                 Text = "helliong.space", 
-                Location = new Point(160, 412), 
+                Location = new Point(160, 577), 
                 AutoSize = true, 
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), 
                 LinkColor = Color.FromArgb(255, 145, 45), 
                 ActiveLinkColor = Color.FromArgb(255, 190, 80), 
-                VisitedLinkColor = Color.FromArgb(255, 145, 45),
+                VisitedLinkColor = Color.FromArgb(255, 145, 45), 
                 Cursor = Cursors.Hand
             };
             linkWebsite.LinkClicked += (s, e) => {
@@ -495,24 +592,24 @@ namespace RustGammaPro
             content.Controls.Add(linkWebsite);
 
             // GitHub & Issues
-            lblGitHub = new Label() {
-                Text = "GitHub: ",
-                Location = new Point(4, 434),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = Color.FromArgb(140, 145, 155)
+            lblGitHub = new Label() { 
+                Text = "GitHub: ", 
+                Location = new Point(4, 599), 
+                AutoSize = true, 
+                Font = new Font("Segoe UI", 8.5f), 
+                ForeColor = Color.FromArgb(140, 145, 155) 
             };
             content.Controls.Add(lblGitHub);
 
-            linkGitHubRepo = new LinkLabel() {
-                Text = "Исходный код",
-                Location = new Point(55, 434),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                LinkColor = Color.FromArgb(80, 180, 255),
-                ActiveLinkColor = Color.FromArgb(130, 215, 255),
-                VisitedLinkColor = Color.FromArgb(80, 180, 255),
-                Cursor = Cursors.Hand
+            linkGitHubRepo = new LinkLabel() { 
+                Text = "Исходный код", 
+                Location = new Point(55, 599), 
+                AutoSize = true, 
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), 
+                LinkColor = Color.FromArgb(80, 180, 255), 
+                ActiveLinkColor = Color.FromArgb(130, 215, 255), 
+                VisitedLinkColor = Color.FromArgb(80, 180, 255), 
+                Cursor = Cursors.Hand 
             };
             linkGitHubRepo.LinkClicked += (s, e) => {
                 try { Process.Start(new ProcessStartInfo("https://github.com/helliong/rust-gamma") { UseShellExecute = true }); }
@@ -520,24 +617,24 @@ namespace RustGammaPro
             };
             content.Controls.Add(linkGitHubRepo);
 
-            lblDot = new Label() {
-                Text = " • ",
-                Location = new Point(145, 434),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = Color.FromArgb(140, 145, 155)
+            lblDot = new Label() { 
+                Text = " • ", 
+                Location = new Point(145, 599), 
+                AutoSize = true, 
+                Font = new Font("Segoe UI", 8.5f), 
+                ForeColor = Color.FromArgb(140, 145, 155) 
             };
             content.Controls.Add(lblDot);
 
-            linkGitHubIssues = new LinkLabel() {
-                Text = "Сообщить о баге",
-                Location = new Point(160, 434),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                LinkColor = Color.FromArgb(255, 120, 120),
-                ActiveLinkColor = Color.FromArgb(255, 160, 160),
-                VisitedLinkColor = Color.FromArgb(255, 120, 120),
-                Cursor = Cursors.Hand
+            linkGitHubIssues = new LinkLabel() { 
+                Text = "Сообщить о баге", 
+                Location = new Point(160, 599), 
+                AutoSize = true, 
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), 
+                LinkColor = Color.FromArgb(255, 120, 120), 
+                ActiveLinkColor = Color.FromArgb(255, 160, 160), 
+                VisitedLinkColor = Color.FromArgb(255, 120, 120), 
+                Cursor = Cursors.Hand 
             };
             linkGitHubIssues.LinkClicked += (s, e) => {
                 try { Process.Start(new ProcessStartInfo("https://github.com/helliong/rust-gamma/issues") { UseShellExecute = true }); }
@@ -546,15 +643,15 @@ namespace RustGammaPro
             content.Controls.Add(linkGitHubIssues);
 
             // Кнопка проверки обновлений
-            linkCheckUpdate = new LinkLabel() {
-                Text = "Проверить обновления",
-                Location = new Point(4, 456),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Underline),
-                LinkColor = Color.FromArgb(180, 185, 195),
-                ActiveLinkColor = Color.FromArgb(255, 160, 50),
-                VisitedLinkColor = Color.FromArgb(180, 185, 195),
-                Cursor = Cursors.Hand
+            linkCheckUpdate = new LinkLabel() { 
+                Text = "Проверить обновления", 
+                Location = new Point(4, 621), 
+                AutoSize = true, 
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Underline), 
+                LinkColor = Color.FromArgb(180, 185, 195), 
+                ActiveLinkColor = Color.FromArgb(255, 160, 50), 
+                VisitedLinkColor = Color.FromArgb(180, 185, 195), 
+                Cursor = Cursors.Hand 
             };
             linkCheckUpdate.LinkClicked += (s, e) => {
                 if (!string.IsNullOrEmpty(latestFoundVersion))
@@ -568,12 +665,12 @@ namespace RustGammaPro
             };
             content.Controls.Add(linkCheckUpdate);
 
-            lblUpdateStatus = new Label() {
-                Text = "",
-                Location = new Point(160, 456),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(140, 145, 155)
+            lblUpdateStatus = new Label() { 
+                Text = "", 
+                Location = new Point(160, 621), 
+                AutoSize = true, 
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), 
+                ForeColor = Color.FromArgb(140, 145, 155) 
             };
             content.Controls.Add(lblUpdateStatus);
 
@@ -761,11 +858,15 @@ namespace RustGammaPro
 
             this.Text = isRU ? "Rust Gamma Pro — Настройки" : "Rust Gamma Pro — Settings";
             lblSub.Text = isRU ? "Аппаратное ночное зрение для Rust (NVIDIA & AMD)" : "Hardware Night Vision for Rust (NVIDIA & AMD)";
-            btnLang.Text = isRU ? "🌐 EN" : "🌐 RU";
+            btnLang.Text = isRU ? "EN" : "RU";
 
-            grpGamma.Text = isRU ? "1. Яркость ночью (Гамма)" : "1. Night Brightness (Gamma)";
-            lblGDesc.Text = isRU ? "Рекомендуется 1.40 – 1.60. Стандартная дневная гамма: 1.00" : "Recommended 1.40 – 1.60. Default day gamma: 1.00";
+            grpGamma.Text = isRU ? "1. Профиль цвета (Яркость, Контраст, Гамма)" : "1. Color Profile (Brightness, Contrast, Gamma)";
+            lblBrightTitle.Text = isRU ? "Яркость (-100 … +100):" : "Brightness (-100 … +100):";
+            lblContrastTitle.Text = isRU ? "Контраст (-100 … +100):" : "Contrast (-100 … +100):";
+            lblGammaTitle.Text = isRU ? "Гамма (0.50 … 3.00):" : "Gamma (0.50 … 3.00):";
+            lblProfileHint.Text = isRU ? "Стандарт: Гамма 1.50x, Яркость 0, Контраст 0" : "Default: Gamma 1.50x, Brightness 0, Contrast 0";
             if (!isTestingGamma) btnTestGamma.Text = isRU ? "Проверить (2 сек)" : "Test (2 sec)";
+            btnResetProfile.Text = isRU ? "↺ Сброс профиля" : "↺ Reset Profile";
 
             grpControls.Text = isRU ? "2. Горячая клавиша и монитор" : "2. Hotkey & Target Display";
             lblKey.Text = isRU ? "Клавиша переключения:" : "Toggle Hotkey:";
@@ -845,13 +946,13 @@ namespace RustGammaPro
             bool isRU = (config.Language == "RU");
             if (rustDetected)
             {
-                lblGameStatus.Text = isRU ? "Статус: 🟢 Rust запущен (в игре!)" : "Status: 🟢 Rust is running (in-game!)";
+                lblGameStatus.Text = isRU ? "Статус: ● Rust запущен (в игре!)" : "Status: ● Rust is running (in-game!)";
                 lblGameStatus.ForeColor = Color.FromArgb(70, 220, 100);
                 trayStatusItem.Text = isRU ? "Rust запущен (в игре)" : "Rust is running (in-game)";
             }
             else
             {
-                lblGameStatus.Text = isRU ? "Статус: ⚪ Ожидание запуска RustClient.exe..." : "Status: ⚪ Waiting for RustClient.exe...";
+                lblGameStatus.Text = isRU ? "Статус: ○ Ожидание запуска RustClient.exe..." : "Status: ○ Waiting for RustClient.exe...";
                 lblGameStatus.ForeColor = Color.FromArgb(170, 175, 185);
                 trayStatusItem.Text = isRU ? "Ожидание запуска Rust..." : "Waiting for Rust...";
             }
@@ -875,7 +976,7 @@ namespace RustGammaPro
             btnTestGamma.Enabled = false;
             btnTestGamma.Text = (config.Language == "RU") ? "Тест (2 сек)..." : "Testing (2s)...";
 
-            ApplyGamma(config.NightGamma);
+            ApplyNightRamp();
             if (config.PlaySound)
             {
                 ThreadPool.QueueUserWorkItem(_ => { try { Console.Beep(900, 100); } catch { } });
@@ -1071,7 +1172,7 @@ namespace RustGammaPro
 
             if (isNight)
             {
-                ApplyGamma(config.NightGamma);
+                ApplyNightRamp();
             }
         }
 
@@ -1090,7 +1191,7 @@ namespace RustGammaPro
             isNight = !isNight;
             if (isNight)
             {
-                ApplyGamma(config.NightGamma);
+                ApplyNightRamp();
                 if (config.PlaySound) ThreadPool.QueueUserWorkItem(_ => { try { Console.Beep(900, 100); } catch { } });
             }
             else
@@ -1101,7 +1202,12 @@ namespace RustGammaPro
             UpdateTrayTooltip();
         }
 
-        private void ApplyGamma(double gammaVal)
+        private void ApplyNightRamp()
+        {
+            ApplyRamp(config.NightGamma, config.NightBrightness, config.NightContrast);
+        }
+
+        private void ApplyRamp(double gammaVal, int brightnessVal, int contrastVal)
         {
             if (config.MonitorMode == "ALL")
             {
@@ -1110,17 +1216,17 @@ namespace RustGammaPro
                 uint i = 0;
                 while (EnumDisplayDevices(null, i, ref dev, 0))
                 {
-                    if ((dev.StateFlags & 1) != 0) ApplyGammaToDevice(dev.DeviceName, gammaVal);
+                    if ((dev.StateFlags & 1) != 0) ApplyRampToDevice(dev.DeviceName, gammaVal, brightnessVal, contrastVal);
                     i++;
                 }
             }
             else
             {
-                ApplyGammaToDevice(activeDeviceName, gammaVal);
+                ApplyRampToDevice(activeDeviceName, gammaVal, brightnessVal, contrastVal);
             }
         }
 
-        private void ApplyGammaToDevice(string deviceName, double gammaVal)
+        private void ApplyRampToDevice(string deviceName, double gammaVal, int brightnessVal, int contrastVal)
         {
             IntPtr hdc = CreateDC(null, deviceName, null, IntPtr.Zero);
             if (hdc != IntPtr.Zero)
@@ -1130,9 +1236,29 @@ namespace RustGammaPro
                 ramp.Green = new ushort[256];
                 ramp.Blue = new ushort[256];
 
+                double bOffset = brightnessVal / 255.0;
+                double cFactor = 1.0 + (contrastVal / 100.0);
+                double invGamma = (gammaVal > 0.01) ? (1.0 / gammaVal) : 1.0;
+
                 for (int i = 0; i < 256; i++)
                 {
-                    ushort val = (ushort)Math.Min(65535, Math.Max(0, Math.Pow(i / 255.0, 1.0 / gammaVal) * 65535.0 + 0.5));
+                    double v = i / 255.0;
+
+                    // 1. Контраст (относительно центра 0.5)
+                    double vC = (v - 0.5) * cFactor + 0.5;
+
+                    // 2. Яркость
+                    double vB = vC + bOffset;
+
+                    // 3. Ограничение в диапазоне [0.0, 1.0]
+                    if (vB < 0.0) vB = 0.0;
+                    else if (vB > 1.0) vB = 1.0;
+
+                    // 4. Гамма-коррекция (power curve)
+                    double vOut = Math.Pow(vB, invGamma);
+
+                    // 5. Масштабирование в 16-битный диапазон GDI [0, 65535]
+                    ushort val = (ushort)Math.Min(65535, Math.Max(0, (int)Math.Round(vOut * 65535.0)));
                     ramp.Red[i] = val;
                     ramp.Green[i] = val;
                     ramp.Blue[i] = val;
@@ -1152,19 +1278,103 @@ namespace RustGammaPro
                 uint i = 0;
                 while (EnumDisplayDevices(null, i, ref dev, 0))
                 {
-                    if ((dev.StateFlags & 1) != 0) ApplyGammaToDevice(dev.DeviceName, 1.0);
+                    if ((dev.StateFlags & 1) != 0) ApplyRampToDevice(dev.DeviceName, 1.0, 0, 0);
                     i++;
                 }
             }
             else
             {
-                IntPtr hdc = CreateDC(null, activeDeviceName, null, IntPtr.Zero);
-                if (hdc != IntPtr.Zero)
+                ApplyRampToDevice(activeDeviceName, 1.0, 0, 0);
+            }
+            isNight = false;
+            UpdateTrayTooltip();
+        }
+
+        private void PicCurve_Paint(object sender, PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int w = picCurve.ClientSize.Width;
+            int h = picCurve.ClientSize.Height;
+            if (w < 10 || h < 10) return;
+
+            // Фон графика
+            using (SolidBrush bg = new SolidBrush(Color.FromArgb(14, 15, 18)))
+            {
+                g.FillRectangle(bg, 0, 0, w, h);
+            }
+
+            // Рамка
+            using (Pen pBorder = new Pen(Color.FromArgb(50, 55, 68), 1))
+            {
+                g.DrawRectangle(pBorder, 0, 0, w - 1, h - 1);
+            }
+
+            // Координатная сетка 4x4
+            using (Pen pGrid = new Pen(Color.FromArgb(32, 35, 45), 1))
+            {
+                pGrid.DashStyle = DashStyle.Dot;
+                for (int i = 1; i < 4; i++)
                 {
-                    if (hasOriginalRamp) SetDeviceGammaRamp(hdc, ref originalRamp);
-                    else ApplyGammaToDevice(activeDeviceName, 1.0);
-                    DeleteDC(hdc);
+                    int gx = (w * i) / 4;
+                    int gy = (h * i) / 4;
+                    g.DrawLine(pGrid, gx, 0, gx, h);
+                    g.DrawLine(pGrid, 0, gy, w, gy);
                 }
+            }
+
+            // Диагональ линейной дневной гаммы 1.0 (пунктир)
+            using (Pen pRef = new Pen(Color.FromArgb(52, 56, 70), 1))
+            {
+                pRef.DashStyle = DashStyle.Dash;
+                g.DrawLine(pRef, 2, h - 3, w - 3, 2);
+            }
+
+            // Расчет кривой по формуле RivaTuner (Яркость, Контраст, Гамма)
+            double gammaVal = config.NightGamma;
+            int bVal = config.NightBrightness;
+            int cVal = config.NightContrast;
+
+            double bOffset = bVal / 255.0;
+            double cFactor = 1.0 + (cVal / 100.0);
+            double invGamma = (gammaVal > 0.01) ? (1.0 / gammaVal) : 1.0;
+
+            PointF[] points = new PointF[w];
+            for (int px = 0; px < w; px++)
+            {
+                double v = (double)px / (w - 1);
+
+                // 1. Контраст
+                double vC = (v - 0.5) * cFactor + 0.5;
+
+                // 2. Яркость
+                double vB = vC + bOffset;
+
+                // 3. Clamping
+                if (vB < 0.0) vB = 0.0;
+                else if (vB > 1.0) vB = 1.0;
+
+                // 4. Гамма
+                double vOut = Math.Pow(vB, invGamma);
+
+                float py = (float)((1.0 - vOut) * (h - 4) + 2);
+                if (py < 2) py = 2;
+                if (py > h - 3) py = h - 3;
+
+                points[px] = new PointF(px, py);
+            }
+
+            using (Pen pCurve = new Pen(Color.FromArgb(255, 140, 40), 2.2f))
+            {
+                g.DrawLines(pCurve, points);
+            }
+
+            // Метка "LUT" в верхнем левом углу
+            using (Font fMini = new Font("Segoe UI", 7.5f, FontStyle.Bold))
+            using (SolidBrush bMini = new SolidBrush(Color.FromArgb(130, 135, 148)))
+            {
+                g.DrawString("LUT", fMini, bMini, 4, 3);
             }
         }
 
@@ -1172,16 +1382,18 @@ namespace RustGammaPro
         {
             bool isRU = (config.Language == "RU");
             string state = isNight 
-                ? (isRU ? string.Format("НОЧЬ ({0:0.00})", config.NightGamma) : string.Format("NIGHT ({0:0.00})", config.NightGamma))
+                ? (isRU ? string.Format("НОЧЬ ({0:0.00}x)", config.NightGamma) : string.Format("NIGHT ({0:0.00}x)", config.NightGamma))
                 : (isRU ? "ДЕНЬ (1.00)" : "DAY (1.00)");
             string rustState = rustDetected 
                 ? (isRU ? "Rust: В игре" : "Rust: In-game")
                 : (isRU ? "Rust: Ожидание" : "Rust: Waiting");
 
-            trayIcon.Text = string.Format("Rust Gamma Pro v{0}\n{1} | {2}\n{3}: {4}", 
+            string tip = string.Format("Rust Gamma Pro v{0}\n{1} | {2}\n{3}: {4}", 
                 APP_VERSION, rustState, state, isRU ? "Хоткей" : "Hotkey", config.HotkeyName);
+            if (tip.Length >= 64) tip = tip.Substring(0, 63);
+            trayIcon.Text = tip;
             trayToggleItem.Text = isNight 
-                ? (isRU ? "Выключить ночь (вернуть 1.0)" : "Turn Night OFF (restore 1.0)")
+                ? (isRU ? "Выключить ночь (вернуть день)" : "Turn Night OFF (restore day)")
                 : (isRU ? string.Format("Включить ночь ({0})", config.HotkeyName) : string.Format("Turn Night ON ({0})", config.HotkeyName));
         }
 
